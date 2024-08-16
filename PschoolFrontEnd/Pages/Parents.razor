@@ -1,0 +1,259 @@
+﻿@page "/Parents"
+@using System.Net.Http.Headers
+@using PschoolFrontEnd.Models
+@inject HttpClient Http
+
+<h3>Parents</h3>
+
+@if (parents == null)
+{
+    <p>Loading...</p>
+}
+else if (!parents.Any())
+{
+    <p>No parents available.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>UserName</th>
+            <th>Home Address</th>
+            <th>Phone</th>
+            <th>Work Phone</th>
+            <th>Home Phone</th>
+            <th>Siblings</th>
+            <th>Children</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var parent in parents)
+        {
+            <tr>
+                <td>@parent.FirstName</td>
+                <td>@parent.LastName</td>
+                <td>@parent.EMail</td>
+                <td>@parent.UserName</td>
+                <td>@parent.HomeAddress</td>
+                <td>@parent.Phone1</td>
+                <td>@parent.WorkPhone</td>
+                <td>@parent.HomePhone</td>
+                <td>@parent.Siblings</td>
+                <td>
+                    <ul>
+                        @if (parent.Children != null && parent.Children.Any())
+                        {
+                            @foreach (var child in parent.Children)
+                            {
+                                <li>@child.FirstName @child.LastName (Age: @child.Age)</li>
+                            }
+                        }
+                        else
+                        {
+                            <li>No children.</li>
+                        }
+                    </ul>
+                </td>
+                <td>
+                    <button @onclick="() => EditParent(parent)">Edit</button>
+                    <button @onclick="() => DeleteParent(parent.ParentId)">Delete</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h4>@(editMode ? "Edit Parent" : "Add New Parent")</h4>
+<div>
+    <input @bind="editParent.FirstName" placeholder="First Name" />
+    <input @bind="editParent.LastName" placeholder="Last Name" />
+    <input @bind="editParent.EMail" placeholder="Email" />
+    <input @bind="editParent.UserName" placeholder="UserName" />
+    <input @bind="editParent.HomeAddress" placeholder="Home Address" />
+    <input @bind="editParent.Phone1" placeholder="Phone" />
+    <input @bind="editParent.WorkPhone" placeholder="Work Phone" />
+    <input @bind="editParent.HomePhone" placeholder="Home Phone" />
+    <input @bind="editParent.Siblings" placeholder="Siblings" />
+    <button @onclick="SaveParent">@((editMode) ? "Save Changes" : "Add Parent")</button>
+</div>
+
+<h3>Добавить ребенка к родителю</h3>
+<div class="form-group">
+    <label for="parentId">ID Родителя:</label>
+    <input type="text" id="parentId" @bind="parentId" class="form-control" />
+</div>
+
+@if (foundParent != null)
+{
+    <h4>Родитель найден: @foundParent.FirstName @foundParent.LastName</h4>
+
+    <h5>Добавить ребенка</h5>
+    <div class="form-group">
+        <label for="childFirstName">Имя ребенка:</label>
+        <input type="text" id="childFirstName" @bind="newChild.FirstName" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label for="childLastName">Фамилия ребенка:</label>
+        <input type="text" id="childLastName" @bind="newChild.LastName" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label for="childAge">Возраст ребенка:</label>
+        <input type="number" id="childAge" @bind="newChild.Age" class="form-control" />
+    </div>
+    <button @onclick="AddChildToParent" class="btn btn-primary">Добавить ребенка</button>
+}
+else
+{
+    <button @onclick="SearchParentById" class="btn btn-secondary">Найти родителя</button>
+}
+
+@code {
+    private List<Parent> parents;
+    private Parent editParent = new Parent(); // Для редактирования/добавления родителя
+    private bool editMode = false; // Для отслеживания режима редактирования
+    private int parentId;
+    private Parent foundParent;
+    private Student newChild = new Student();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5219/api/Parents");
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.CacheControl = new CacheControlHeaderValue
+            {
+                NoCache = true,
+                NoStore = true
+            };
+
+            var response = await Http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            parents = await response.Content.ReadFromJsonAsync<List<Parent>>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching parents: {ex.Message}");
+        }
+    }
+
+    private async Task SaveParent()
+    {
+        if (editMode)
+        {
+            try
+            {
+                var response = await Http.PutAsJsonAsync($"http://localhost:5219/api/Parents/{editParent.ParentId}", editParent);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating parent: {ex.Message}");
+            }
+        }
+        else
+        {
+            try
+            {
+                var response = await Http.PostAsJsonAsync("http://localhost:5219/api/Parents", editParent);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating parent: {ex.Message}");
+            }
+        }
+
+        parents = await Http.GetFromJsonAsync<List<Parent>>("http://localhost:5219/api/Parents");
+        editParent = new Parent();
+        editMode = false;
+    }
+
+    private void EditParent(Parent parent)
+    {
+        editParent = new Parent
+        {
+            ParentId = parent.ParentId,
+            FirstName = parent.FirstName,
+            LastName = parent.LastName,
+            EMail = parent.EMail,
+            UserName = parent.UserName,
+            HomeAddress = parent.HomeAddress,
+            Phone1 = parent.Phone1,
+            WorkPhone = parent.WorkPhone,
+            HomePhone = parent.HomePhone,
+            Siblings = parent.Siblings,
+            Children = parent.Children
+        };
+        editMode = true;
+    }
+
+    private async Task DeleteParent(int parentId)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:5219/api/Parents/{parentId}");
+            response.EnsureSuccessStatusCode();
+
+            parents = await Http.GetFromJsonAsync<List<Parent>>("http://localhost:5219/api/Parents");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting parent: {ex.Message}");
+        }
+    }
+
+    private async Task SearchParentById()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"http://localhost:5219/api/Parents/{parentId}");
+            if (response.IsSuccessStatusCode)
+            {
+                foundParent = await response.Content.ReadFromJsonAsync<Parent>();
+            }
+            else
+            {
+                Console.WriteLine($"Родитель с ID {parentId} не найден.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при поиске родителя: {ex.Message}");
+        }
+    }
+
+    private async Task AddChildToParent()
+    {
+        try
+        {
+            if (foundParent != null)
+            {
+                foundParent.Children.Add(newChild);
+
+                var response = await Http.PutAsJsonAsync($"http://localhost:5219/api/Parents/{parentId}", foundParent);
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("Ребенок успешно добавлен.");
+                    newChild = new Student();
+                }
+                else
+                {
+                    Console.WriteLine("Ошибка при добавлении ребенка.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при добавлении ребенка: {ex.Message}");
+        }
+    }
+}

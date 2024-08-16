@@ -1,0 +1,44 @@
+﻿@page "/Students"
+@using PschoolFrontEnd.Models
+@inject HttpClient Http
+
+<h3>Students</h3>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Age</th>
+        <th>Parent ID</th>
+    </tr>
+    </thead>
+    <tbody>
+    @if (students != null && students.Any())
+    {
+        @foreach (var student in students)
+        {
+            <tr>
+                <td>@student.FirstName</td>
+                <td>@student.LastName</td>
+                <td>@student.Age</td>
+                <td>@student.ParentId</td>
+            </tr>
+        }
+    }
+    else
+    {
+        <tr>
+            <td colspan="4">No students available</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private List<Student> students = new List<Student>(); 
+    protected override async Task OnInitializedAsync()
+    {
+        students = await Http.GetFromJsonAsync<List<Student>>("api/students") ?? new List<Student>(); // Гарантия того, что не будет null
+    }
+}
